@@ -23,6 +23,6 @@ const moment = require('moment');
       }
     }, 60000);
   } catch (err) {
-    console.log(err.request);
+    console.log(err.message);
   }
 })();

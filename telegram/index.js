@@ -4,8 +4,16 @@ const Slimbot = require('slimbot');
 const slimbot = new Slimbot(process.env.TELEGRAM_TOKEN);
 
 exports.sendMessage = (text) => {
-  [process.env.TELEGRAM_ID].map((id) => {
+  JSON.parse(process.env.TELEGRAM_IDS).map((id) => {
     slimbot.sendMessage(id, text);
   });
   console.log(`Message sent`);
 };
+
+slimbot.on('message', (message) => {
+  console.log(message);
+});
+
+// Call API
+
+slimbot.startPolling();
