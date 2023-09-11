@@ -10,10 +10,11 @@ exports.sendMessage = (text) => {
   console.log(`Message sent`);
 };
 
-slimbot.on('message', (message) => {
-  console.log(message);
-});
+// Debug only
+// slimbot.on('message', (message) => {
+//   console.log(message);
+// });
 
-// Call API
+// // Call API
 
-slimbot.startPolling();
+// slimbot.startPolling();
