@@ -4,10 +4,10 @@ const moment = require('moment');
 
 (async () => {
   const email = process.env.TGTG_EMAIL;
+  const tgtg = new TooGoodToGo({
+    email,
+  });
   try {
-    const tgtg = new TooGoodToGo({
-      email,
-    });
     await tgtg.login();
     setInterval(async () => {
       console.log(`Checking for items at  ${moment().format('HH:mm:ss')}`);
@@ -23,6 +23,10 @@ const moment = require('moment');
       }
     }, 60000);
   } catch (err) {
+    if ([401].includes(err.response.status)) {
+      console.log('Token expired');
+      await tgtg.login(true);
+    }
     console.log(err.message);
   }
 })();

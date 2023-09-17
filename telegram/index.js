@@ -10,7 +10,7 @@ exports.sendMessage = (text) => {
   console.log(`Message sent`);
 };
 
-// Debug only
+// // Debug
 // slimbot.on('message', (message) => {
 //   console.log(message);
 // });

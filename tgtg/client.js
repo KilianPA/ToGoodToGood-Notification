@@ -23,6 +23,13 @@ const getClient = () => {
   return client;
 };
 
+exports.deleteHeaders = (headers) => {
+  client = getClient();
+  headers.forEach((header) => {
+    delete client.defaults.headers.common[header];
+  });
+};
+
 exports.setBearerToken = (token) => {
   client = getClient();
   console.log(`Setting bearer token: ${token}`);

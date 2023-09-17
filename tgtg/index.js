@@ -1,4 +1,5 @@
 const moment = require('moment');
+const fs = require('fs');
 moment.locale('fr');
 
 const {
@@ -10,6 +11,7 @@ const {
   getSettings,
   setDatadomeCookie,
   refreshToken,
+  deleteHeaders,
 } = require('./client');
 const prompt = require('async-prompt');
 
@@ -29,11 +31,15 @@ class TooGoodToGo {
     this.#datadome = datadome;
   }
 
-  async login() {
-    if (!this.#accessToken) {
+  async login(force = false) {
+    if (!force) this.getTokenFile();
+
+    if (!this.#accessToken || force) {
+      deleteHeaders(['Authorization', 'Cookie']);
       const { polling_id } = await login(this.#user.email);
       this.#pollingId = polling_id;
       await this.authenticate();
+      this.storeFileToken();
     }
     setBearerToken(this.#accessToken);
     setDatadomeCookie(this.#datadome);
@@ -114,6 +120,29 @@ class TooGoodToGo {
     this.#refreshToken = refresh_token;
     this.#lastRefresh = moment();
     setBearerToken(this.#accessToken);
+  }
+
+  async getTokenFile() {
+    if (fs.existsSync('./tgtg/token.json')) {
+      const file = fs.readFileSync('./tgtg/token.json');
+      const { accessToken, refreshToken, datadome } = JSON.parse(file);
+      this.#accessToken = accessToken;
+      this.#refreshToken = refreshToken;
+      this.#datadome = datadome;
+      console.log('Token file loaded');
+    }
+  }
+
+  async storeFileToken() {
+    console.log('Storing token');
+    fs.writeFileSync(
+      './tgtg/token.json',
+      JSON.stringify({
+        accessToken: this.#accessToken,
+        refreshToken: this.#refreshToken,
+        datadome: this.#datadome,
+      })
+    );
   }
 }
 
