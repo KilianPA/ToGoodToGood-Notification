@@ -1,6 +1,7 @@
 const moment = require('moment');
 const fs = require('fs');
 moment.locale('fr');
+const telegram = require('../telegram');
 
 const {
   login,
@@ -12,137 +13,158 @@ const {
   setDatadomeCookie,
   refreshToken,
   deleteHeaders,
+  getPackages,
 } = require('./client');
 const prompt = require('async-prompt');
 
 class TooGoodToGo {
   #accessToken;
-  #accessTokenTtlSeconds;
-  #datadome;
-  #refreshToken;
-  #pollingId;
-  #user;
-  #lastRefresh;
   #itemsSeen = [];
+  #packagesEverSeen;
+  state = {};
 
-  constructor({ email, accessToken = null, datadome = null }) {
-    this.#user = { email };
-    this.#accessToken = accessToken;
-    this.#datadome = datadome;
+  constructor(state) {
+    this.state = {
+      session: {},
+      credentials: {},
+      items: [],
+      packages: [],
+      ...state,
+    };
   }
 
   async login(force = false) {
-    if (!force) this.getTokenFile();
+    if (!force) this.loadState();
 
-    if (!this.#accessToken || force) {
+    if (!this.state.session?.accessToken || force) {
+      this.state.session = {};
       deleteHeaders(['Authorization', 'Cookie']);
-      const { polling_id } = await login(this.#user.email);
-      this.#pollingId = polling_id;
+      const { polling_id } = await login(this.state.credentials.email);
+      this.state.session.pollingId = polling_id;
       await this.authenticate();
-      this.storeFileToken();
     }
-    setBearerToken(this.#accessToken);
-    setDatadomeCookie(this.#datadome);
+    setBearerToken(this.state.session.accessToken);
+    setDatadomeCookie(this.state.session.datadome);
+    this.saveState();
     await this.setUser();
   }
 
   async setUser() {
-    const { user } = await getSettings(this.#accessToken);
-    this.#user = user;
+    const { user } = await getSettings();
+    this.state.user = user;
+    this.saveState();
   }
 
   async authenticate() {
-    await authenticate(this.#user.email, this.#pollingId);
+    await authenticate(this.state.credentials.email, this.state.session.pollingId);
     const pinCode = await prompt('Enter pin code: ');
     const { access_token, access_token_ttl_seconds, refresh_token, datadome } =
       await this.authByPinCode(pinCode);
-    this.#datadome = datadome;
-    this.#accessToken = access_token;
-    this.#accessTokenTtlSeconds = access_token_ttl_seconds;
-    this.#refreshToken = refresh_token;
-    this.#lastRefresh = moment();
+    this.state.session = {
+      datadome,
+      accessToken: access_token,
+      accessTokenTtlSeconds: access_token_ttl_seconds,
+      refreshToken: refresh_token,
+      lastRefresh: moment(),
+    };
   }
 
   async authByPinCode(pinCode) {
-    return authByPinCode(this.#user.email, pinCode, this.#pollingId);
+    return authByPinCode(this.state.credentials.email, pinCode, this.state.session.pollingId);
   }
 
-  async getItems() {
-    if (moment().diff(this.#lastRefresh, 'seconds') > this.#accessTokenTtlSeconds - 60) {
-      await this.refreshToken();
-    }
-    let { items } = await getItems({
-      diet_categories: [],
-      discover: false,
-      favorites_only: true,
-      hidden_only: false,
-      item_categories: [],
-      origin: {
-        latitude: 43.663787884626295,
-        longitude: 7.188408548260815,
-      },
-      page: 1,
-      page_size: 400,
-      radius: 10,
-      sort_option: 'RELEVANCE',
-      user_id: this.#user.user_id,
-      we_care_only: false,
-      with_stock_only: true,
+  async checkItemsWorkflow() {
+    console.log('[TooGoodToGo] checking items');
+    return new Promise(async (resolve, reject) => {
+      let items = await getItems({
+        bucket: {
+          filler_type: 'Favorites',
+        },
+        origin: {
+          latitude: 43.66370861766941,
+          longitude: 7.186696684895937,
+        },
+        paging: {
+          page: 0,
+          size: 50,
+        },
+        radius: 1,
+        user_id: this.state.user.user_id,
+      });
+
+      // Remove items already seen
+      items = items.filter(
+        (item) => item.items_available > 0 && !this.state.items.includes(item.item.item_id)
+      );
+
+      // Add new items to itemsSeen
+      this.state.items = [...this.state.items, ...items.map((item) => item.item.item_id)];
+
+      await Promise.all(items.map((item) => telegram.sendNotification(item)));
+      resolve('done');
+      this.saveState();
     });
-
-    // Remove id in itemsSeen if not in items
-    this.#itemsSeen = this.#itemsSeen.filter((id) =>
-      items.find((item) => item.item.item_id === id)
-    );
-
-    // Remove items already seen
-    items = items.filter((item) => !this.#itemsSeen.includes(item.item.item_id));
-
-    // Add new items to itemsSeen
-    this.#itemsSeen = [...this.#itemsSeen, ...items.map((item) => item.item.item_id)];
-
-    return items.map((item) => ({
-      identifier: item.item.item_id,
-      name: item.display_name,
-      pickupStart: moment(item.pickup_interval.start).format('LLLL'),
-      pickupEnd: moment(item.pickup_interval.end).format('LLLL'),
-    }));
   }
 
   async refreshToken() {
-    const { access_token, access_token_ttl_seconds, refresh_token } = await refreshToken(
-      this.#accessToken,
-      this.#refreshToken
+    console.log(
+      `Next refresh at ${moment(this.state.session.lastRefresh)
+        .add(this.state.session.accessTokenTtlSeconds, 'seconds')
+        .format('LLLL')}`
     );
-    console.log('refreshing token');
-    this.#accessToken = access_token;
-    this.#accessTokenTtlSeconds = access_token_ttl_seconds;
-    this.#refreshToken = refresh_token;
-    this.#lastRefresh = moment();
-    setBearerToken(this.#accessToken);
-  }
-
-  async getTokenFile() {
-    if (fs.existsSync('./tgtg/token.json')) {
-      const file = fs.readFileSync('./tgtg/token.json');
-      const { accessToken, refreshToken, datadome } = JSON.parse(file);
-      this.#accessToken = accessToken;
-      this.#refreshToken = refreshToken;
-      this.#datadome = datadome;
-      console.log('Token file loaded');
+    if (
+      moment().diff(this.state.session.lastRefresh, 'seconds') >
+      this.state.session.accessTokenTtlSeconds - 60
+    ) {
+      const { access_token, access_token_ttl_seconds, refresh_token } = await refreshToken(
+        this.state.session.accessToken,
+        this.state.session.refreshToken
+      );
+      console.log('[TooGoodToGo] refreshing token');
+      this.state.session = {
+        ...this.state.session,
+        accessToken: access_token,
+        accessTokenTtlSeconds: access_token_ttl_seconds,
+        refreshToken: refresh_token,
+        lastRefresh: moment(),
+      };
+      setBearerToken(access_token);
+      this.saveState();
     }
   }
 
-  async storeFileToken() {
-    console.log('Storing token');
-    fs.writeFileSync(
-      './tgtg/token.json',
-      JSON.stringify({
-        accessToken: this.#accessToken,
-        refreshToken: this.#refreshToken,
-        datadome: this.#datadome,
-      })
-    );
+  async loadState() {
+    if (fs.existsSync('./tgtg/state.json')) {
+      const state = JSON.parse(fs.readFileSync('./tgtg/state.json'));
+      if (Object.keys(state).length && state.constructor === Object) {
+        this.state = JSON.parse(fs.readFileSync('./tgtg/state.json'));
+      }
+      console.log('[TooGoodToGo] state loaded');
+    }
+  }
+
+  async saveState() {
+    console.log('Saving state');
+    fs.writeFileSync('./tgtg/state.json', JSON.stringify(this.state));
+  }
+
+  async checkPackagesWorkflow() {
+    console.log('[TooGoodToGo] checking packages');
+    return new Promise(async (resolve, reject) => {
+      let packages = await getPackages();
+      // Remove packages already seen
+      packages = packages.filter(
+        (p) =>
+          p.items_available > 0 && !this.state.packages.find((sp) => sp.package_id === p.package_id)
+      );
+
+      // Add new packages to packagesSeen
+      this.state.packages = [...this.state.packages, ...packages];
+
+      await Promise.all(packages.map((item) => telegram.sendPackageNotification(item)));
+      resolve('done');
+      this.saveState();
+    });
   }
 }
 

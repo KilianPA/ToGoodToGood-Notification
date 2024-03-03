@@ -19,6 +19,24 @@ const getClient = () => {
         jar,
       })
     );
+
+    client.interceptors.request.use(
+      function (config) {
+        return config;
+      },
+      function (error) {
+        return Promise.reject(error);
+      }
+    );
+
+    client.interceptors.response.use(
+      function (response) {
+        return response;
+      },
+      function (error) {
+        return Promise.reject(error);
+      }
+    );
   }
   return client;
 };
@@ -32,13 +50,11 @@ exports.deleteHeaders = (headers) => {
 
 exports.setBearerToken = (token) => {
   client = getClient();
-  console.log(`Setting bearer token: ${token}`);
   client.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 };
 
 exports.setDatadomeCookie = (datadome) => {
   client = getClient();
-  console.log(`Setting datadome cookie: ${datadome}`);
   client.defaults.headers.common['Cookie'] = `datadome=${datadome}`;
 };
 
@@ -81,11 +97,11 @@ exports.authByPinCode = async (email, pinCode, pollingId) => {
 
 exports.getItems = async (payload) => {
   const client = getClient();
-  const response = await client.post('/item/v8', payload);
-  return response.data;
+  const response = await client.post('/discover/v1/bucket', payload);
+  return response.data.mobile_bucket.items;
 };
 
-exports.getSettings = async (token) => {
+exports.getSettings = async () => {
   const client = getClient();
   const response = await client.post('/app/v1/onStartup');
   return response.data;
@@ -98,4 +114,14 @@ exports.refreshToken = async (accessToken, refreshToken) => {
     refresh_token: refreshToken,
   });
   return response.data;
+};
+
+exports.getPackages = async () => {
+  const client = getClient();
+  const response = await client.post('/manufactureritem/v1', {
+    country_id: 'FR',
+    page: 1,
+    page_size: 50,
+  });
+  return response.data?.manufacturer_items;
 };

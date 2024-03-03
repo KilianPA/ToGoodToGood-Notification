@@ -1,5 +1,6 @@
 require('dotenv').config();
 const Slimbot = require('slimbot');
+const moment = require('moment');
 
 const slimbot = new Slimbot(process.env.TELEGRAM_TOKEN);
 
@@ -10,11 +11,19 @@ exports.sendMessage = (text) => {
   console.log(`Message sent`);
 };
 
-// // Debug
-// slimbot.on('message', (message) => {
-//   console.log(message);
-// });
+exports.sendNotification = (item) => {
+  this.sendMessage(
+    `TooGoodToGo\n Un panier est disponible chez : \n${
+      item.display_name
+    } \nA récupérer entre le ${moment(item.pickup_interval.start).format('LLLL')} et le ${moment(
+      item.pickup_interval.end
+    ).format('LLLL')} \n https://share.toogoodtogo.com/item/${item.item.item_id} \n\n`
+  );
+};
 
-// // Call API
-
-// slimbot.startPolling();
+exports.sendPackageNotification = (item) => {
+  this.sendMessage(
+    `TooGoodToGo\n Un colis est disponible chez : \n${item.display_name}
+\n https://share.toogoodtogo.com/item/${item.item.item_id} \n\n`
+  );
+};
