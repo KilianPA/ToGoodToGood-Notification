@@ -1,7 +1,7 @@
-const moment = require('moment');
-const fs = require('fs');
-moment.locale('fr');
-const telegram = require('../telegram');
+const moment = require("moment");
+const fs = require("fs");
+moment.locale("fr");
+const telegram = require("../telegram");
 
 const {
   login,
@@ -14,8 +14,8 @@ const {
   refreshToken,
   deleteHeaders,
   getPackages,
-} = require('./client');
-const prompt = require('async-prompt');
+} = require("./client");
+const prompt = require("async-prompt");
 
 class TooGoodToGo {
   #accessToken;
@@ -38,7 +38,7 @@ class TooGoodToGo {
 
     if (!this.state.session?.accessToken || force) {
       this.state.session = {};
-      deleteHeaders(['Authorization', 'Cookie']);
+      deleteHeaders(["Authorization", "Cookie"]);
       const { polling_id } = await login(this.state.credentials.email);
       this.state.session.pollingId = polling_id;
       await this.authenticate();
@@ -47,6 +47,7 @@ class TooGoodToGo {
     setDatadomeCookie(this.state.session.datadome);
     this.saveState();
     await this.setUser();
+    console.log("[TooGoodToGo] logged in");
   }
 
   async setUser() {
@@ -56,8 +57,11 @@ class TooGoodToGo {
   }
 
   async authenticate() {
-    await authenticate(this.state.credentials.email, this.state.session.pollingId);
-    const pinCode = await prompt('Enter pin code: ');
+    await authenticate(
+      this.state.credentials.email,
+      this.state.session.pollingId
+    );
+    const pinCode = await prompt("Enter pin code: ");
     const { access_token, access_token_ttl_seconds, refresh_token, datadome } =
       await this.authByPinCode(pinCode);
     this.state.session = {
@@ -70,15 +74,19 @@ class TooGoodToGo {
   }
 
   async authByPinCode(pinCode) {
-    return authByPinCode(this.state.credentials.email, pinCode, this.state.session.pollingId);
+    return authByPinCode(
+      this.state.credentials.email,
+      pinCode,
+      this.state.session.pollingId
+    );
   }
 
   async checkItemsWorkflow() {
-    console.log('[TooGoodToGo] checking items');
+    console.log("[TooGoodToGo] checking items");
     return new Promise(async (resolve, reject) => {
       let items = await getItems({
         bucket: {
-          filler_type: 'Favorites',
+          filler_type: "Favorites",
         },
         origin: {
           latitude: 43.66370861766941,
@@ -94,33 +102,45 @@ class TooGoodToGo {
 
       // Remove items already seen
       items = items.filter(
-        (item) => item.items_available > 0 && !this.state.items.includes(item.item.item_id)
+        (item) =>
+          item.items_available > 0 &&
+          !this.state.items.includes(item.item.item_id)
       );
 
+      if (items.length) {
+        console.log(`[TooGoodToGo] found ${items.length} new items`);
+      } else {
+        console.log("[TooGoodToGo] no new items");
+      }
+
       // Add new items to itemsSeen
-      this.state.items = [...this.state.items, ...items.map((item) => item.item.item_id)];
+      this.state.items = [
+        ...this.state.items,
+        ...items.map((item) => item.item.item_id),
+      ];
 
       await Promise.all(items.map((item) => telegram.sendNotification(item)));
-      resolve('done');
+      resolve("done");
       this.saveState();
     });
   }
 
   async refreshToken() {
     console.log(
-      `Next refresh at ${moment(this.state.session.lastRefresh)
-        .add(this.state.session.accessTokenTtlSeconds, 'seconds')
-        .format('LLLL')}`
+      `[TooGoodToGo] Next refresh at ${moment(this.state.session.lastRefresh)
+        .add(this.state.session.accessTokenTtlSeconds, "seconds")
+        .format("LLLL")}`
     );
     if (
-      moment().diff(this.state.session.lastRefresh, 'seconds') >
+      moment().diff(this.state.session.lastRefresh, "seconds") >
       this.state.session.accessTokenTtlSeconds - 60
     ) {
-      const { access_token, access_token_ttl_seconds, refresh_token } = await refreshToken(
-        this.state.session.accessToken,
-        this.state.session.refreshToken
-      );
-      console.log('[TooGoodToGo] refreshing token');
+      const { access_token, access_token_ttl_seconds, refresh_token } =
+        await refreshToken(
+          this.state.session.accessToken,
+          this.state.session.refreshToken
+        );
+      console.log("[TooGoodToGo] refreshing token");
       this.state.session = {
         ...this.state.session,
         accessToken: access_token,
@@ -134,36 +154,46 @@ class TooGoodToGo {
   }
 
   async loadState() {
-    if (fs.existsSync('./tgtg/state.json')) {
-      const state = JSON.parse(fs.readFileSync('./tgtg/state.json'));
+    if (fs.existsSync("./tgtg/state.json")) {
+      const state = JSON.parse(fs.readFileSync("./tgtg/state.json"));
       if (Object.keys(state).length && state.constructor === Object) {
-        this.state = JSON.parse(fs.readFileSync('./tgtg/state.json'));
+        this.state = JSON.parse(fs.readFileSync("./tgtg/state.json"));
       }
-      console.log('[TooGoodToGo] state loaded');
+      console.log("[TooGoodToGo] state loaded");
     }
   }
 
   async saveState() {
-    console.log('Saving state');
-    fs.writeFileSync('./tgtg/state.json', JSON.stringify(this.state));
+    fs.writeFileSync("./tgtg/state.json", JSON.stringify(this.state));
   }
 
   async checkPackagesWorkflow() {
-    console.log('[TooGoodToGo] checking packages');
+    console.log("[TooGoodToGo] checking packages");
     return new Promise(async (resolve, reject) => {
       let packages = await getPackages();
       // Remove packages already seen
       packages = packages.filter(
         (p) =>
-          p.items_available > 0 && !this.state.packages.find((sp) => sp.package_id === p.package_id)
+          p.items_available > 0 && !this.state.packages.includes(p.item.item_id)
       );
 
-      // Add new packages to packagesSeen
-      this.state.packages = [...this.state.packages, ...packages];
+      if (packages.length) {
+        console.log(`[TooGoodToGo] found ${packages.length} new packages`);
+      } else {
+        console.log("[TooGoodToGo] no new packages");
+      }
 
-      await Promise.all(packages.map((item) => telegram.sendPackageNotification(item)));
-      resolve('done');
+      // Add new packages to packagesSeen
+      this.state.packages = [
+        ...this.state.packages,
+        ...packages.map((p) => p.item.item_id),
+      ];
+
+      await Promise.all(
+        packages.map((item) => telegram.sendPackageNotification(item))
+      );
       this.saveState();
+      resolve("done");
     });
   }
 }

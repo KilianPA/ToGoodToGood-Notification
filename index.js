@@ -1,35 +1,35 @@
-const { sendMessage } = require('./telegram');
-const TooGoodToGo = require('./tgtg');
-const moment = require('moment');
-const { delay } = require('./utils/delay');
+const { sendMessage } = require("./telegram");
+const TooGoodToGo = require("./tgtg");
+const moment = require("moment");
+const { delay } = require("./utils/delay");
 
 /**
- * @param {TooGoodToGo} tgtg
+ * @param {TooGoodToGo} client
  */
-const schedule = async (tgtg) => {
-  await delay(1000);
-  await tgtg.checkItemsWorkflow();
-  await delay(1000);
-  await tgtg.checkItemsWorkflow();
-  await delay(1000);
-  await schedule(tgtg);
+const schedule = async (client) => {
+  await client.checkItemsWorkflow();
+  await delay(4000);
+  await client.checkPackagesWorkflow();
+  await delay(60000);
+  await client.refreshToken();
+  await schedule(client);
 };
 
 (async () => {
   const email = process.env.TGTG_EMAIL;
-  const tgtg = new TooGoodToGo({
+  const client = new TooGoodToGo({
     credentials: {
       email,
     },
   });
   try {
-    await tgtg.login();
-    await schedule(tgtg);
+    await client.login();
+    await schedule(client);
   } catch (err) {
     console.log(err);
     if ([401].includes(err.response.status)) {
-      console.log('Token expired');
-      await tgtg.login(true);
+      console.log("Token expired");
+      await client.login(true);
     }
   }
 })();
