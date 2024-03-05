@@ -1,32 +1,35 @@
-const { sendMessage } = require('./telegram');
-const TooGoodToGo = require('./tgtg');
-const moment = require('moment');
+const { sendMessage } = require("./telegram");
+const TooGoodToGo = require("./tgtg");
+const moment = require("moment");
+const { delay } = require("./utils/delay");
+
+/**
+ * @param {TooGoodToGo} client
+ */
+const schedule = async (client) => {
+  await client.checkItemsWorkflow();
+  await delay(4000);
+  await client.checkPackagesWorkflow();
+  await delay(60000);
+  await client.refreshToken();
+  await schedule(client);
+};
 
 (async () => {
   const email = process.env.TGTG_EMAIL;
-  const tgtg = new TooGoodToGo({
-    email,
+  const client = new TooGoodToGo({
+    credentials: {
+      email,
+    },
   });
   try {
-    await tgtg.login();
-    setInterval(async () => {
-      console.log(`Checking for items at  ${moment().format('HH:mm:ss')}`);
-      const items = await tgtg.getItems();
-      if (items.length) {
-        await Promise.all(
-          items.map((item) =>
-            sendMessage(
-              `TooGoodToGo\n Un panier est disponible chez : \n${item.name} \nA récupérer entre le ${item.pickupStart} et le ${item.pickupEnd}`
-            )
-          )
-        );
-      }
-    }, 60000);
+    await client.login();
+    await schedule(client);
   } catch (err) {
+    console.log(err);
     if ([401].includes(err.response.status)) {
-      console.log('Token expired');
-      await tgtg.login(true);
+      console.log("Token expired");
+      await client.login(true);
     }
-    console.log(err.message);
   }
 })();
