@@ -61,7 +61,9 @@ class TooGoodToGo {
       this.state.credentials.email,
       this.state.session.pollingId
     );
-    const pinCode = await prompt("Enter pin code: ");
+    telegram.sendMessage("Please check your email and enter the pin code :");
+    console.log("[TooGoodToGo] Waiting for pin code...");
+    const pinCode = await telegram.listen();
     const { access_token, access_token_ttl_seconds, refresh_token, datadome } =
       await this.authByPinCode(pinCode);
     this.state.session = {
@@ -71,6 +73,7 @@ class TooGoodToGo {
       refreshToken: refresh_token,
       lastRefresh: moment(),
     };
+    telegram.sendMessage("You are now logged in");
   }
 
   async authByPinCode(pinCode) {
