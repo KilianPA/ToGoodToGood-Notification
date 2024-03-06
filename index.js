@@ -8,9 +8,9 @@ const { delay } = require("./utils/delay");
  */
 const schedule = async (client) => {
   await client.checkItemsWorkflow();
-  await delay(4000);
+  await delay(6000);
   await client.checkPackagesWorkflow();
-  await delay(60000);
+  await delay(6000);
   await client.refreshToken();
   await schedule(client);
 };
