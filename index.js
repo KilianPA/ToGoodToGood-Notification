@@ -1,34 +1,61 @@
-const { sendMessage } = require("./telegram");
-const TooGoodToGo = require("./tgtg");
-const moment = require("moment");
-const { delay } = require("./utils/delay");
+const { sendMessage } = require('./lib/telegram');
+const TooGoodToGo = require('./class/tgtg');
+const moment = require('moment');
+const { delay } = require('./utils/delay');
+const account = require('./model/account');
+const clients = {};
 
 /**
  * @param {TooGoodToGo} client
  */
-const schedule = async (client) => {
-  await client.checkItemsWorkflow();
+const schedule = async () => {
+  for (const [email, client] of Object.entries(clients)) {
+    await client.checkItemsWorkflow();
+    await delay(6000);
+    await client.checkPackagesWorkflow();
+    await delay(6000);
+    await client.refreshToken();
+  }
   await delay(6000);
-  await client.checkPackagesWorkflow();
-  await delay(6000);
-  await client.refreshToken();
-  await schedule(client);
+  await schedule();
+};
+
+const logAccounts = async (accounts) => {
+  for (const account of accounts) {
+    const state = Object.keys(account.state).length
+      ? account.state
+      : {
+          credentials: {
+            email: account.email,
+          },
+        };
+    const client = new TooGoodToGo({
+      ...state,
+      accountId: account.id,
+      telegramConversationIds: account.telegramConversationIds,
+    });
+    try {
+      await client.login();
+      clients[account.email] = client;
+    } catch (err) {
+      console.log(err);
+      if ([401].includes(err.response.status)) {
+        console.log('Token expired');
+        await client.login(true);
+      }
+    }
+  }
 };
 
 (async () => {
-  const email = process.env.TGTG_EMAIL;
-  const client = new TooGoodToGo({
-    credentials: {
-      email,
-    },
-  });
+  const accounts = await account.getAccounts();
+  await logAccounts(accounts);
   try {
-    await client.login();
-    await schedule(client);
+    await schedule();
   } catch (err) {
     console.log(err);
     if ([401].includes(err.response.status)) {
-      console.log("Token expired");
+      console.log('Token expired');
       await client.login(true);
     }
   }
