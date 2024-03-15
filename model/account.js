@@ -1,7 +1,7 @@
-const { query } = require('../lib/mysql');
+const { query } = require("../lib/mysql");
 
 exports.getAccounts = async (id) => {
-  const results = await query('SELECT * FROM account');
+  const results = await query("SELECT * FROM account");
   if (results.length) {
     return results.map((result) => {
       return {
@@ -14,16 +14,43 @@ exports.getAccounts = async (id) => {
   }
 };
 
+exports.getAccountByConversationId = async (telegramConversationId) => {
+  const results = await query(
+    "SELECT * FROM account WHERE telegram_conversation_ids like '%?%'",
+    [telegramConversationId]
+  );
+  if (results.length) {
+    return {
+      id: results[0].id,
+      email: results[0].email,
+      telegramConversationIds: JSON.parse(results[0].telegram_conversation_ids),
+      state: results[0].state ? JSON.parse(results[0].state) : {},
+    };
+  }
+};
+
+exports.getAccountByEmail = async (email) => {
+  const results = await query("SELECT * FROM account WHERE email = ?", [email]);
+  if (results.length) {
+    return {
+      id: results[0].id,
+      email: results[0].email,
+      telegramConversationIds: JSON.parse(results[0].telegram_conversation_ids),
+      state: results[0].state ? JSON.parse(results[0].state) : {},
+    };
+  }
+};
+
 exports.createAccount = async (email, telegramConversationId) => {
-  const results = await query('INSERT INTO account (email, telegram_conversation_id) VALUES ?', [
-    email,
-    telegramConversationId,
-  ]);
+  const results = await query(
+    "INSERT INTO account (email, telegram_conversation_ids) VALUES (?, ?)",
+    [email, JSON.stringify([telegramConversationId])]
+  );
   return results.length ? results[0] : null;
 };
 
 exports.updateState = async (id, state) => {
-  const results = await query('UPDATE account SET state = ? WHERE id = ?', [
+  const results = await query("UPDATE account SET state = ? WHERE id = ?", [
     JSON.stringify(state),
     id,
   ]);

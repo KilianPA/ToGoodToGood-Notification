@@ -1,8 +1,8 @@
-const { sendMessage } = require('./lib/telegram');
-const TooGoodToGo = require('./class/tgtg');
-const moment = require('moment');
-const { delay } = require('./utils/delay');
-const account = require('./model/account');
+const { sendMessage } = require("./lib/telegram");
+const TooGoodToGo = require("./class/tgtg");
+const moment = require("moment");
+const { delay } = require("./utils/delay");
+const account = require("./model/account");
 const clients = {};
 
 /**
@@ -17,6 +17,7 @@ const schedule = async () => {
     await client.refreshToken();
   }
   await delay(6000);
+  await setAccounts();
   await schedule();
 };
 
@@ -40,22 +41,26 @@ const logAccounts = async (accounts) => {
     } catch (err) {
       console.log(err);
       if ([401].includes(err.response.status)) {
-        console.log('Token expired');
+        console.log("Token expired");
         await client.login(true);
       }
     }
   }
 };
 
-(async () => {
+const setAccounts = async () => {
   const accounts = await account.getAccounts();
   await logAccounts(accounts);
+};
+
+(async () => {
+  await setAccounts();
   try {
     await schedule();
   } catch (err) {
     console.log(err);
     if ([401].includes(err.response.status)) {
-      console.log('Token expired');
+      console.log("Token expired");
       await client.login(true);
     }
   }
