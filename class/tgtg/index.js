@@ -5,24 +5,11 @@ const fs = require("fs");
 moment.locale("fr");
 const telegram = require("../../lib/telegram");
 
-const {
-  login,
-  authenticate,
-  authByPinCode,
-  setBearerToken,
-  getItems,
-  getSettings,
-  setDatadomeCookie,
-  refreshToken,
-  deleteHeaders,
-  getPackages,
-} = require("./client");
+const ToGoodToGoClient = require("./client");
 const prompt = require("async-prompt");
 
 class TooGoodToGo {
-  #accessToken;
-  #itemsSeen = [];
-  #packagesEverSeen;
+  client;
   state = {};
 
   constructor(state) {
@@ -33,11 +20,12 @@ class TooGoodToGo {
       packages: [],
       ...state,
     };
+    this.client = new ToGoodToGoClient();
   }
 
   async login(force = false) {
     if (!this.state.session?.accessToken || force) {
-      deleteHeaders(["Authorization", "Cookie"]);
+      this.client.deleteHeaders(["Authorization", "Cookie"]);
       const pendingRequest = await requestModel.getPendingRequest(
         this.state.accountId,
         "email_code"
@@ -53,15 +41,17 @@ class TooGoodToGo {
           return;
         }
       } else {
-        const { polling_id } = await login(this.state.credentials.email);
+        const { polling_id } = await this.client.login(
+          this.state.credentials.email
+        );
         this.state.session.pollingId = polling_id;
         await this.authenticate();
         await this.saveState();
         return;
       }
     }
-    setBearerToken(this.state.session.accessToken);
-    setDatadomeCookie(this.state.session.datadome);
+    this.client.setBearerToken(this.state.session.accessToken);
+    this.client.setDatadomeCookie(this.state.session.datadome);
     await this.saveState();
     await this.setUser();
     console.log(`[TooGoodToGo] logged in with ${this.state.credentials.email}`);
@@ -69,14 +59,14 @@ class TooGoodToGo {
   }
 
   async setUser() {
-    const { user } = await getSettings();
+    const { user } = await this.client.getSettings();
     this.state.user = user;
     await this.saveState();
   }
 
   async authByPinCode(pinCode) {
     const { access_token, access_token_ttl_seconds, refresh_token, datadome } =
-      await authByPinCode(
+      await this.client.authByPinCode(
         this.state.credentials.email,
         pinCode,
         this.state.session.pollingId
@@ -95,7 +85,7 @@ class TooGoodToGo {
   }
 
   async authenticate() {
-    await authenticate(
+    await this.client.authenticate(
       this.state.credentials.email,
       this.state.session.pollingId
     );
@@ -109,7 +99,7 @@ class TooGoodToGo {
   async checkItemsWorkflow() {
     console.log(`[TooGoodToGo] checking items for ${this.state.user.email}`);
     return new Promise(async (resolve, reject) => {
-      let items = await getItems({
+      let items = await this.client.getItems({
         bucket: {
           filler_type: "Favorites",
         },
@@ -177,7 +167,7 @@ class TooGoodToGo {
       this.state.session.accessTokenTtlSeconds - 60
     ) {
       const { access_token, access_token_ttl_seconds, refresh_token } =
-        await refreshToken(
+        await this.client.refreshToken(
           this.state.session.accessToken,
           this.state.session.refreshToken
         );
@@ -189,7 +179,7 @@ class TooGoodToGo {
         refreshToken: refresh_token,
         lastRefresh: moment(),
       };
-      setBearerToken(access_token);
+      this.client.setBearerToken(access_token);
       await this.saveState();
     }
   }
@@ -211,7 +201,7 @@ class TooGoodToGo {
   async checkPackagesWorkflow() {
     console.log(`[TooGoodToGo] checking packages for ${this.state.user.email}`);
     return new Promise(async (resolve, reject) => {
-      let packages = await getPackages();
+      let packages = await this.client.getPackages();
       // Remove packages already seen
       packages = packages.filter(
         (p) =>

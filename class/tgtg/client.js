@@ -1,26 +1,27 @@
-const axios = require('axios');
-const { wrapper } = require('axios-cookiejar-support');
-const { CookieJar } = require('tough-cookie');
+const axios = require("axios");
+const { wrapper } = require("axios-cookiejar-support");
+const { CookieJar } = require("tough-cookie");
 
-let client;
+class TooGoodToGoClient {
+  client;
 
-const getClient = () => {
-  if (!client) {
+  constructor() {
     const jar = new CookieJar();
-    client = wrapper(
+    this.client = wrapper(
       axios.create({
-        baseURL: 'https://apptoogoodtogo.com/api',
+        baseURL: "https://apptoogoodtogo.com/api",
         headers: {
-          'User-Agent': 'TooGoodToGo/23.8.10 (13872) (iPhone/iPhone 12; iOS 16.6; Scale/3.00/iOS)',
-          'Content-Type': 'application/json',
-          'accept-language': 'fr-FR',
-          accept: 'application/json',
+          "User-Agent":
+            "TooGoodToGo/23.8.10 (13872) (iPhone/iPhone 12; iOS 16.6; Scale/3.00/iOS)",
+          "Content-Type": "application/json",
+          "accept-language": "fr-FR",
+          accept: "application/json",
         },
         jar,
       })
     );
 
-    client.interceptors.request.use(
+    this.client.interceptors.request.use(
       function (config) {
         return config;
       },
@@ -29,7 +30,7 @@ const getClient = () => {
       }
     );
 
-    client.interceptors.response.use(
+    this.client.interceptors.response.use(
       function (response) {
         return response;
       },
@@ -38,90 +39,77 @@ const getClient = () => {
       }
     );
   }
-  return client;
-};
 
-exports.deleteHeaders = (headers) => {
-  client = getClient();
-  headers.forEach((header) => {
-    delete client.defaults.headers.common[header];
-  });
-};
+  deleteHeaders(headers) {
+    headers.forEach((header) => {
+      delete this.client.defaults.headers.common[header];
+    });
+  }
 
-exports.setBearerToken = (token) => {
-  client = getClient();
-  client.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-};
+  setBearerToken(token) {
+    this.client.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+  }
 
-exports.setDatadomeCookie = (datadome) => {
-  client = getClient();
-  client.defaults.headers.common['Cookie'] = `datadome=${datadome}`;
-};
+  setDatadomeCookie(datadome) {
+    this.client.defaults.headers.common["Cookie"] = `datadome=${datadome}`;
+  }
 
-exports.login = async (email) => {
-  const client = getClient();
-  const response = await client.post(
-    '/auth/v4/authByEmail',
-    {
-      device_type: 'IOS',
+  async login(email) {
+    const response = await this.client.post("/auth/v4/authByEmail", {
+      device_type: "IOS",
       email,
-    },
-    {
-      timeout: 2000,
-    }
-  );
-  return response.data;
-};
+    });
+    return response.data;
+  }
 
-exports.authenticate = async (email, pollingId) => {
-  const client = getClient();
-  const response = await client.post('/auth/v4/authByRequestPollingId', {
-    device_type: 'IOS',
-    email,
-    request_polling_id: pollingId,
-  });
-  return response.data;
-};
+  async authenticate(email, pollingId) {
+    const response = await this.client.post("/auth/v4/authByRequestPollingId", {
+      device_type: "IOS",
+      email,
+      request_polling_id: pollingId,
+    });
+    return response.data;
+  }
 
-exports.authByPinCode = async (email, pinCode, pollingId) => {
-  const client = getClient();
-  const response = await client.post('/auth/v4/authByRequestPin', {
-    device_type: 'IOS',
-    email,
-    request_pin: pinCode,
-    request_polling_id: pollingId,
-  });
-  const datadome = response.config.jar.toJSON().cookies.find((c) => c.key === 'datadome').value;
-  return { ...response.data, datadome };
-};
+  async authByPinCode(email, pinCode, pollingId) {
+    const response = await this.client.post("/auth/v4/authByRequestPin", {
+      device_type: "IOS",
+      email,
+      request_pin: pinCode,
+      request_polling_id: pollingId,
+    });
+    const datadome = response.config.jar
+      .toJSON()
+      .cookies.find((c) => c.key === "datadome").value;
+    return { ...response.data, datadome };
+  }
 
-exports.getItems = async (payload) => {
-  const client = getClient();
-  const response = await client.post('/discover/v1/bucket', payload);
-  return response.data.mobile_bucket.items;
-};
+  async getItems(payload) {
+    const response = await this.client.post("/discover/v1/bucket", payload);
+    return response.data.mobile_bucket.items;
+  }
 
-exports.getSettings = async () => {
-  const client = getClient();
-  const response = await client.post('/app/v1/onStartup');
-  return response.data;
-};
+  async getSettings() {
+    const response = await this.client.post("/app/v1/onStartup");
+    return response.data;
+  }
 
-exports.refreshToken = async (accessToken, refreshToken) => {
-  const client = getClient();
-  const response = await client.post('/auth/v4/token/refresh', {
-    access_token: accessToken,
-    refresh_token: refreshToken,
-  });
-  return response.data;
-};
+  async refreshToken(accessToken, refreshToken) {
+    const response = await this.client.post("/auth/v4/token/refresh", {
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
+    return response.data;
+  }
 
-exports.getPackages = async () => {
-  const client = getClient();
-  const response = await client.post('/manufactureritem/v1', {
-    country_id: 'FR',
-    page: 1,
-    page_size: 50,
-  });
-  return response.data?.manufacturer_items;
-};
+  async getPackages() {
+    const response = await this.client.post("/manufactureritem/v1", {
+      country_id: "FR",
+      page: 1,
+      page_size: 50,
+    });
+    return response.data?.manufacturer_items;
+  }
+}
+
+module.exports = TooGoodToGoClient;
