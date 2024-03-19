@@ -36,8 +36,10 @@ const logAccounts = async (accounts) => {
       telegramConversationIds: account.telegramConversationIds,
     });
     try {
-      await client.login();
-      clients[account.email] = client;
+      const token = await client.login();
+      if (token) {
+        clients[account.email] = client;
+      }
     } catch (err) {
       console.log(err);
       if ([401].includes(err.response.status)) {
@@ -50,7 +52,7 @@ const logAccounts = async (accounts) => {
 
 const setAccounts = async () => {
   const accounts = await account.getAccounts();
-  await logAccounts(accounts);
+  await logAccounts(accounts || []);
 };
 
 (async () => {

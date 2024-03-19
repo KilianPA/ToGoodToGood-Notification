@@ -47,7 +47,9 @@ class TooGoodToGo {
           await this.authByPinCode(pendingRequest.value);
           await requestModel.deleteRequest(pendingRequest.id);
         } else {
-          console.log("[TooGoodToGo] No pin code found");
+          console.log(
+            `[TooGoodToGo] No pin code found for ${this.state.credentials.email}`
+          );
           return;
         }
       } else {
@@ -63,6 +65,7 @@ class TooGoodToGo {
     await this.saveState();
     await this.setUser();
     console.log(`[TooGoodToGo] logged in with ${this.state.credentials.email}`);
+    return this.state.session.accessToken;
   }
 
   async setUser() {
@@ -104,7 +107,7 @@ class TooGoodToGo {
     await requestModel.createRequest(this.state.accountId, "email_code");
   }
   async checkItemsWorkflow() {
-    console.log("[TooGoodToGo] checking items");
+    console.log(`[TooGoodToGo] checking items for ${this.state.user.email}`);
     return new Promise(async (resolve, reject) => {
       let items = await getItems({
         bucket: {
@@ -130,9 +133,13 @@ class TooGoodToGo {
       );
 
       if (itemsNotSeen.length) {
-        console.log(`[TooGoodToGo] found ${itemsNotSeen.length} new items`);
+        console.log(
+          `[TooGoodToGo] found ${itemsNotSeen.length} new items available for ${this.state.user.email}`
+        );
       } else {
-        console.log("[TooGoodToGo] no new items");
+        console.log(
+          `[TooGoodToGo] no new items available for ${this.state.user.email}`
+        );
       }
 
       // Add new items to itemsSeen
@@ -163,7 +170,7 @@ class TooGoodToGo {
     console.log(
       `[TooGoodToGo] Next refresh at ${moment(this.state.session.lastRefresh)
         .add(this.state.session.accessTokenTtlSeconds, "seconds")
-        .format("LLLL")}`
+        .format("LLLL")} for ${this.state.user.email}`
     );
     if (
       moment().diff(this.state.session.lastRefresh, "seconds") >
@@ -202,7 +209,7 @@ class TooGoodToGo {
   }
 
   async checkPackagesWorkflow() {
-    console.log("[TooGoodToGo] checking packages");
+    console.log(`[TooGoodToGo] checking packages for ${this.state.user.email}`);
     return new Promise(async (resolve, reject) => {
       let packages = await getPackages();
       // Remove packages already seen
@@ -212,9 +219,13 @@ class TooGoodToGo {
       );
 
       if (packages.length) {
-        console.log(`[TooGoodToGo] found ${packages.length} new packages`);
+        console.log(
+          `[TooGoodToGo] found ${packages.length} new packages for ${this.state.user.email}`
+        );
       } else {
-        console.log("[TooGoodToGo] no new packages");
+        console.log(
+          `[TooGoodToGo] no new packages for ${this.state.user.email}`
+        );
       }
 
       // Add new packages to packagesSeen

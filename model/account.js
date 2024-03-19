@@ -1,7 +1,7 @@
 const { query } = require("../lib/mysql");
 
 exports.getAccounts = async (id) => {
-  const results = await query("SELECT * FROM account");
+  const results = await query("SELECT * FROM account where enable = 1");
   if (results.length) {
     return results.map((result) => {
       return {
