@@ -103,12 +103,18 @@ class TooGoodToGoClient {
   }
 
   async getPackages() {
-    const response = await this.client.post("/manufactureritem/v1", {
-      country_id: "FR",
-      page: 1,
-      page_size: 50,
+    const response = await this.client.post("/manufactureritem/v2", {
+      action_types_accepted: [],
+      display_types_accepted: ["LIST"],
+      element_types_accepted: [
+        "ITEM",
+        "MANUFACTURER_STORY_CARD",
+        "DUO_ITEMS",
+        "TEXT",
+        "NPS",
+      ],
     });
-    return response.data?.manufacturer_items;
+    return response.data?.groups[0].elements.map((p) => p.item);
   }
 }
 

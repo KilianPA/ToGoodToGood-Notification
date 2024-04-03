@@ -204,8 +204,7 @@ class TooGoodToGo {
       let packages = await this.client.getPackages();
       // Remove packages already seen
       packages = packages.filter(
-        (p) =>
-          p.items_available > 0 && !this.state.packages.includes(p.item.item_id)
+        (p) => p.available_stock > 0 && !this.state.packages.includes(p.item_id)
       );
 
       if (packages.length) {
@@ -221,7 +220,7 @@ class TooGoodToGo {
       // Add new packages to packagesSeen
       this.state.packages = [
         ...this.state.packages,
-        ...packages.map((p) => p.item.item_id),
+        ...packages.map((p) => p.item_id),
       ];
 
       await Promise.all(
