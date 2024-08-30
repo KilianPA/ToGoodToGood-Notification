@@ -20,7 +20,7 @@ class TooGoodToGo {
       packages: [],
       ...state,
     };
-    this.client = new ToGoodToGoClient();
+    this.client = new ToGoodToGoClient(this);
   }
 
   async login(force = false) {

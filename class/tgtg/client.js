@@ -1,21 +1,34 @@
 const axios = require("axios");
 const { wrapper } = require("axios-cookiejar-support");
 const { CookieJar } = require("tough-cookie");
+const Chance = require("chance");
+const { password } = require("async-prompt");
 
 class TooGoodToGoClient {
   client;
+  chance;
 
-  constructor() {
+  parent;
+
+  /**
+   * @returns {TooGoodToGoClient}
+   */
+  constructor(parent) {
+    this.parent = parent;
+    this.chance = new Chance();
     const jar = new CookieJar();
     this.client = wrapper(
       axios.create({
+        timeout: 1000,
         baseURL: "https://apptoogoodtogo.com/api",
         headers: {
           "User-Agent":
-            "TooGoodToGo/23.8.10 (13872) (iPhone/iPhone 12; iOS 16.6; Scale/3.00/iOS)",
+            "TooGoodToGo/24.5.10 (26520) (iPhone/iPhone 12; iOS 17.4.1; Scale/3.00/iOS)",
           "Content-Type": "application/json",
           "accept-language": "fr-FR",
           accept: "application/json",
+          connection: "keep-alive",
+          "accept-encoding": "gzip",
         },
         jar,
       })
@@ -31,13 +44,36 @@ class TooGoodToGoClient {
     );
 
     this.client.interceptors.response.use(
-      function (response) {
+      async (response) => {
+        const datadomeCookie = this.getDatadomeCookie(response);
+        if (datadomeCookie) {
+          await this.setDatadomeCookie(datadomeCookie);
+        }
         return response;
       },
-      function (error) {
+      async (error) => {
+        const datadomeCookie = this.getDatadomeCookie(error.response);
+        if (datadomeCookie) {
+          await this.setDatadomeCookie(datadomeCookie);
+        }
         return Promise.reject(error);
       }
     );
+  }
+
+  getDatadomeCookie(response) {
+    if (
+      response.headers["set-cookie"] &&
+      response.headers["set-cookie"].length &&
+      response.headers["set-cookie"][0]
+        .split(";")
+        .find((c) => c.includes("datadome"))
+    ) {
+      return response.headers["set-cookie"][0]
+        .split(";")
+        .find((c) => c.includes("datadome"))
+        .replace("datadome=", "");
+    }
   }
 
   deleteHeaders(headers) {
@@ -50,8 +86,11 @@ class TooGoodToGoClient {
     this.client.defaults.headers.common["Authorization"] = `Bearer ${token}`;
   }
 
-  setDatadomeCookie(datadome) {
+  async setDatadomeCookie(datadome) {
+    console.log(`Last found datadome ${datadome}`);
     this.client.defaults.headers.common["Cookie"] = `datadome=${datadome}`;
+    this.parent.state.session.datadome = datadome;
+    await this.parent.saveState();
   }
 
   async login(email) {
@@ -78,15 +117,30 @@ class TooGoodToGoClient {
       request_pin: pinCode,
       request_polling_id: pollingId,
     });
-    const datadome = response.config.jar
-      .toJSON()
-      .cookies.find((c) => c.key === "datadome").value;
-    return { ...response.data, datadome };
+    return response.data;
   }
 
   async getItems(payload) {
     const response = await this.client.post("/discover/v1/bucket", payload);
     return response.data.mobile_bucket.items;
+  }
+
+  async getAppSettings() {
+    const response = await this.client.post("/app/v1/app_settings");
+    return response.data;
+  }
+
+  async postAnonymousEvents() {
+    const data = {
+      country_code: "FR",
+      event_type: "BEFORE_COOKIE_CONSENT",
+      uuid: this.chance.guid(),
+    };
+    const response = await this.client.post(
+      "/tracking/v1/anonymousEvents",
+      data
+    );
+    return response.data;
   }
 
   async getSettings() {
@@ -104,15 +158,9 @@ class TooGoodToGoClient {
 
   async getPackages() {
     const response = await this.client.post("/manufactureritem/v2", {
-      action_types_accepted: [],
+      action_types_accepted: ["QUERY"],
       display_types_accepted: ["LIST"],
-      element_types_accepted: [
-        "ITEM",
-        "MANUFACTURER_STORY_CARD",
-        "DUO_ITEMS",
-        "TEXT",
-        "NPS",
-      ],
+      element_types_accepted: ["ITEM"],
     });
     return response.data?.groups[0].elements.map((p) => p.item);
   }
