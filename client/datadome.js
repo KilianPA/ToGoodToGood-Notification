@@ -31,7 +31,7 @@ class Datadome {
       mdl: "iPhone13,2",
       screen_y: 2532.0,
       ddv: "3.5.2",
-      request: "https://apptoogoodtogo.com/api/auth/v5/authByRequestPollingId",
+      request: "https://apptoogoodtogo.com/api",
       osr: 18.0,
       ddk: "1D42C2CA6131C526E09F294FE96F94",
       screen_x: "1170.0",

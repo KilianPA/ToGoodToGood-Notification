@@ -38,7 +38,6 @@ class TooGoodToGoClient {
     this.client.interceptors.request.use(
       async function (config) {
         await delay(Math.floor(Math.random() * (1500 - 1000 + 1)) + 1000);
-        console.log(`Url ${config.url} : Cookie ${config.headers["Cookie"]}`);
         return config;
       },
       function (error) {
@@ -51,13 +50,15 @@ class TooGoodToGoClient {
 
     this.client.interceptors.response.use(
       async (response) => {
-        console.log("Url with datadome", response.config.url);
         await this.setCookie(response);
         return response;
       },
       async (error) => {
-        console.log("Url with datadome", error.response.config.url);
-        await this.setCookie(error.response);
+        if (error.response.status === 403) {
+          const cookie = await this.parent.datadome.getCookie();
+          this.forceCookie(cookie);
+          await delay(10000);
+        }
         return Promise.reject({
           message: error.message,
           data:
@@ -100,7 +101,6 @@ class TooGoodToGoClient {
       response.headers["set-cookie"].length
     ) {
       const cookie = response.headers["set-cookie"][0];
-      console.log(`Last found cookie ${cookie}`);
       this.client.defaults.headers.common["Cookie"] = cookie;
       this.parent.state.session.cookie = cookie;
       await this.parent.saveState();
