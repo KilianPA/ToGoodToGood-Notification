@@ -21,8 +21,9 @@ const schedule = async () => {
   await schedule();
 };
 
-const logAccounts = async (accounts) => {
-  for (const account of accounts) {
+const accounts = {};
+const getAccount = async (account) => {
+  if (!accounts[account.email]) {
     const state = Object.keys(account.state).length
       ? account.state
       : {
@@ -35,6 +36,14 @@ const logAccounts = async (accounts) => {
       accountId: account.id,
       telegramConversationIds: account.telegramConversationIds,
     });
+    accounts[account.email] = client;
+  }
+  return accounts[account.email];
+};
+
+const logAccounts = async (accounts) => {
+  for (const account of accounts) {
+    const client = await getAccount(account);
     try {
       const token = await client.login();
       if (token) {
@@ -42,7 +51,7 @@ const logAccounts = async (accounts) => {
       }
     } catch (err) {
       console.log(err);
-      if ([401].includes(err.response.status)) {
+      if (err.response?.status && [401].includes(err.response.status)) {
         console.log("Token expired");
         await client.login(true);
       }
@@ -60,7 +69,7 @@ const setAccounts = async () => {
   try {
     await schedule();
   } catch (err) {
-    console.log(err);
+    console.log(err.message);
     if ([401].includes(err.response.status)) {
       console.log("Token expired");
       await client.login(true);
