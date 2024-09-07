@@ -19,9 +19,17 @@ MYSQL_PASSWORD=
 
 Start index.js
 
+Use listener.js to add account and setup auth with pinCode
+
+Command available for you telegram Bot
+
+```
+/start <email> // Create account
+/code <email> <code> // To set pinCode
+```
+
 The bot will start authentification with TooGoodToGo api and ask you to enter de "pinCode". The pinCode is send to you by email
 
-Use listener.js to send and catch pinCode with Telegram, or set pinCode in request table
 
 <img width="527" alt="Capture d’écran 2023-09-06 à 13 53 05" src="https://github.com/KilianPA/ToGoodToGo/assets/31858257/43bbfc30-5bb3-4847-8a3d-845340a0b1b9">
 
