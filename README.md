@@ -1,4 +1,6 @@
-# ToGoodToGo (WIP)
+# ToGoodToGo (Working 09/24)
+
+[![Hits](https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Fgithub.com%2FKilianPA%2FToGoodToGood-Notification&count_bg=%2379C83D&title_bg=%23555555&icon=&icon_color=%23E7E7E7&title=hits&edge_flat=false)](https://hits.seeyoufarm.com)
 
 Nodejs client to watch when basket is available :
 
